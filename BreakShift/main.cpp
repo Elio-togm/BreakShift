@@ -55,7 +55,7 @@ void SetupBricks(); // Function declaration for setting up the bricks
 const int BRICK_ROWS = 16; // Number of rows of bricks
 const int BRICK_COLUMNS = 8; // Number of columns of bricks
 
-const float RATE_OF_CHANGE = 0.025; // Rate of change for the ball speed
+const float RATE_OF_CHANGE = 0.025f; // Rate of change for the ball speed
 
 const int MOVE_SPEED = 12; // Speed at which the paddle moves
 
