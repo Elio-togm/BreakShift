@@ -1,6 +1,9 @@
 #include "raylib.h" // Include raylib header for graphics and window management
 #include "text.hpp" // Include the text header for custom text functions
 
+const int screenWidth = 800; // Width of the window
+const int screenHeight = 600; // Height of the window
+
 struct Paddle {
     Vector2 position; // Position of the paddle
     float width; // Width of the paddle
@@ -27,6 +30,14 @@ struct GameState {
 	bool startGame; // Flag to check if the game has started
 	bool lostBall; // Flag to check if a ball has been lost
 	bool gameOver; // Flag to check if the game is over
+
+	void ResetLife() { // Function to reset the ball
+		ball.position = { static_cast<float>(screenWidth) / 2.0f, static_cast<float>(screenHeight) / 2.0f }; // Reset ball position to center
+		ball.speed = { 0.0f, GetRandomValue(0, 1) ? -5.0f : 5.0f }; // Reset ball speed
+		player.position = { static_cast<float>(screenWidth) / 2.0f - 50.0f, static_cast<float>(screenHeight) - 30.0f }; // Reset paddle position
+		startGame = false; // Set start game flag to false
+		lostBall = false; // Reset lost ball flag
+	}
 };
 
 GameState UpdateBall(Ball& ball, Paddle& player, GameState gameState, int screenWidth, int screenHeight); // Function declaration for updating the ball
@@ -39,18 +50,19 @@ void CheckBallBrickCollision(Ball &ball, GameState &gameState); // Function decl
 
 int CheckClearBricks(); // Function declaration for checking if all bricks are cleared
 
+void SetupBricks(); // Function declaration for setting up the bricks
+
 const int BRICK_ROWS = 16; // Number of rows of bricks
 const int BRICK_COLUMNS = 8; // Number of columns of bricks
 
 const float RATE_OF_CHANGE = 0.025; // Rate of change for the ball speed
 
+const int MOVE_SPEED = 12; // Speed at which the paddle moves
+
 Brick bricks[BRICK_ROWS][BRICK_COLUMNS]; // Array to hold the bricks in the game
 
 int main() {
 		// Initialize the parameters for BreakShift
-
-		const int screenWidth = 800; // Width of the window
-		const int screenHeight = 600; // Height of the window
 
 		InitWindow(screenWidth, screenHeight, "BreakShift"); // Create a window with the specified width, height, and title
 		SetTargetFPS(60); // Set the target frames per second
@@ -62,13 +74,7 @@ int main() {
 
 		Ball ball = { { screenWidth / 2, screenHeight / 2 }, {0.0f, GetRandomValue(0, 1) ? -5.0f : 5.0f}, 10}; // Initialize the ball with position, speed, and radius
 
-        for (int row = 0; row < 16; row++) { // Initialize the bricks
-			for (int col = 0; col < 8; col++) {
-				bricks[row][col].rect = { static_cast<float>(row) * 50 + 5, static_cast<float>(col) * 20 + 50, 40, 15 }; // Set the rectangle for each brick
-				bricks[row][col].color = (row % 2 == 0) ? RED : BLUE; // Alternate colors for the bricks
-				bricks[row][col].isActive = true; // Set all bricks to active initially
-			}
-		}
+		SetupBricks(); // Set up the bricks in the game
 
 		GameState gameState = {player, ball, 0, 3, false, false, false}; // Create a game state object to hold the game parameters
 
@@ -177,10 +183,10 @@ GameState UpdateBall(Ball &ball, Paddle &player, GameState gameState, int screen
 Rectangle UpdatePaddle(Paddle &player, Rectangle player_rect, int screenWidth) {
 	// Update the game logic here
 	if (IsKeyDown(KEY_LEFT) or IsKeyDown(KEY_A)) {
-		player.position.x -= 15; // Move the paddle left
+		player.position.x -= MOVE_SPEED; // Move the paddle left
 	}
 	if (IsKeyDown(KEY_RIGHT) or IsKeyDown(KEY_D)) {
-		player.position.x += 15; // Move the paddle right
+		player.position.x += MOVE_SPEED; // Move the paddle right
 	}
 	if (player.position.x < 0) {
 		player.position.x = 0; // Prevent the paddle from going off the left edge
@@ -203,17 +209,21 @@ GameState CheckGameState(GameState &gameState, int screenWidth, int screenHeight
     if (gameState.lostBall) {
         gameState.numberOfBalls--; // Decrease the number of balls when a ball is lost
         if (gameState.numberOfBalls > 0) {
-            gameState.ball.position = { static_cast<float>(screenWidth) / 2.0f, static_cast<float>(screenHeight) / 2.0f }; // Reset the ball position
-            gameState.ball.speed = { 0.0f, GetRandomValue(0, 1) ? -5.0f : 5.0f }; // Reset the ball speed
-            gameState.player.position = { static_cast<float>(screenWidth) / 2.0f - 50.0f, static_cast<float>(screenHeight) - 30.0f }; // Reset the paddle position
-            gameState.startGame = false;
-            gameState.lostBall = false; // Reset the lost ball flag
+			gameState.ResetLife(); // Reset the ball and paddle positions
         }
         else {
             gameState.startGame = false;
             gameState.gameOver = true; // Stop the game if no balls are left
         }
     }
+
+	// Check if all bricks are cleared
+	if (CheckClearBricks()) {
+		gameState.ResetLife(); // Reset the ball and paddle positions
+		gameState.score += 100; // Increase the score when all bricks are cleared
+		SetupBricks(); // Reset the bricks for a new game
+	}
+
     if (IsKeyPressed(KEY_SPACE) && !gameState.gameOver) {
         gameState.startGame = true; // Start the game when space is pressed
     }
@@ -256,11 +266,21 @@ void CheckBallBrickCollision(Ball &ball, GameState &gameState) {
 int CheckClearBricks() {
 	for (int row = 0; row < BRICK_ROWS; row++) {
 		for (int col = 0; col < BRICK_COLUMNS; col++) {
-			if (!bricks[row][col].isActive) {
-				return 0; // Exit if any brick is inactive
+			if (bricks[row][col].isActive) {
+				return 0; // Exit if any brick is active
 			}
 		}
 	}
 	// If all bricks are active, reset the game or increase difficulty
 	return 1; // Return 1 if all bricks are inactive
+}
+
+void SetupBricks() {
+	for (int row = 0; row < BRICK_ROWS; row++) { // Initialize the bricks
+		for (int col = 0; col < BRICK_COLUMNS; col++) {
+			bricks[row][col].rect = { static_cast<float>(row) * 50 + 5, static_cast<float>(col) * 20 + 50, 40, 15 }; // Set the rectangle for each brick
+			bricks[row][col].color = (row % 2 == 0) ? RED : BLUE; // Alternate colors for the bricks
+			bricks[row][col].isActive = true; // Set all bricks to active initially
+		}
+	}
 }
